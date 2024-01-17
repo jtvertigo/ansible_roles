@@ -1,0 +1,34 @@
+global_defs {
+  enable_script_security
+  script_user keepalived_script
+}
+
+vrrp_script check_health {
+    script {% if keepalived__settings['custom_script_path'] is defined %}"{{ keepalived__settings['custom_script_path'] }}"{% else %}"/usr/bin/pgrep haproxy"{% endif +%}
+    interval 2
+}
+
+vrrp_instance {{ keepalived__settings['vrrp_instance'] }}  {
+  state {% if keepalived__settings['master_ip'] == ansible_facts['default_ipv4']['address'] %}MASTER{% else %}BACKUP{% endif +%}
+  interface {{ ansible_facts['default_ipv4']['interface'] }}
+  virtual_router_id {{ keepalived__settings['virtual_router_id'] }}
+  priority {% if keepalived__settings['master_ip'] == ansible_facts['default_ipv4']['address'] %}{{ keepalived__settings['master_priority'] }}{% else %}{{ keepalived__settings['backup_priority'] }}{% endif +%}
+  advert_int {{ keepalived__settings['advert_init'] }}
+  unicast_src_ip {{ ansible_facts['default_ipv4']['address'] }}
+  unicast_peer {
+    {% if keepalived__settings['master_ip'] == ansible_facts['default_ipv4']['address'] %}{{ keepalived__settings['backup_ip'] }}{% else %}{{ keepalived__settings['master_ip'] }}{% endif +%}
+  }
+
+  authentication {
+    auth_type PASS
+    auth_pass {{ keepalived__settings['auth_pass'] }}
+  }
+
+  virtual_ipaddress {
+    {{ keepalived__settings['virtual_ip_address'] }}
+  }
+
+  track_script {
+    check_health
+  }
+}

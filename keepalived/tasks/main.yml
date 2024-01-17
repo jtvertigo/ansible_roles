@@ -1,0 +1,47 @@
+---
+- name: "Install keepalived"
+  ansible.builtin.apt:
+    name: "keepalived"
+    update_cache: true
+    state: present
+
+- name: "Cancel update for keepalived packet"
+  ansible.builtin.command: apt-mark hold keepalived
+  register: __apt_mark_hold_answer
+  changed_when:
+    - __apt_mark_hold_answer['stdout'] != "keepalived was already set on hold."
+    - __apt_mark_hold_answer['stdout'] != "keepalived уже помечен как зафиксированный."
+
+- name: "Create user"
+  ansible.builtin.user:
+    name: "{{ __keepalived__user }}"
+    shell: /sbin/nologin
+    create_home: false
+    state: present
+
+- name: "Generate check-script"
+  ansible.builtin.template:
+    src: "check_patroni.sh.j2"
+    dest: "{{ keepalived__settings['custom_script_path'] }}"
+    owner: root
+    group: root
+    mode: "0755"
+    validate: /usr/bin/bash -n %s
+  when: keepalived__settings['custom_script_path'] is defined
+
+- name: "Generate config file"
+  ansible.builtin.template:
+    src: "keepalived.conf.j2"
+    dest: "/etc/keepalived/keepalived.conf"
+    owner: root
+    group: root
+    mode: "0644"
+    backup: true
+    validate: /usr/sbin/keepalived -t -f %s
+  notify: "restart keepalived"
+
+- name: "Start and enable keepalived systemd service"
+  ansible.builtin.service:
+    name: keepalived
+    state: started
+    enabled: true

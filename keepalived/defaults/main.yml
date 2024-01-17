@@ -1,0 +1,12 @@
+---
+keepalived__settings:
+  vrrp_instance: VI_1
+  master_ip: 192.168.88.101
+  backup_ip: 192.168.88.102
+  virtual_router_id: 55
+  advert_init: 1
+  auth_pass: QWed345d
+  virtual_ip_address: 192.168.88.100
+  master_priority: 100
+  backup_priority: 100
+  # custom_script_path: "/usr/local/bin/check_patroni.sh"
