@@ -1,0 +1,122 @@
+---
+# - name: "Debug - host's information"
+#   ansible.builtin.debug:
+#     var: ansible_facts
+
+- name: "Update setup cache (apt update) and upgrade packets (apt upgrade)"
+  ansible.builtin.apt:
+    update_cache: true
+    upgrade: true
+  retries: 3
+  delay: 20
+  register: __apt_update_result
+  until: __apt_update_result is not failed
+
+- name: "Turn off auto upgrades"
+  ansible.builtin.replace:
+    path: /etc/apt/apt.conf.d/20auto-upgrades
+    regexp: "1"
+    replace: "0"
+
+- name: "Set timezone"
+  community.general.timezone:
+    name: "{{ os_base_setup__timezone }}"
+  when: os_base_setup__timezone
+
+- name: "Delete unecessary ntp-clients"
+  ansible.builtin.apt:
+    name:
+      - chrony
+      - ntp
+    state: absent
+
+- name: "Setup systemd-timesyncd"
+  ansible.builtin.apt:
+    name: "{{ __os_base_setup__ntp_client }}"
+
+- name: "Add NTP-servers into file /etc/systemd/timesyncd.conf"
+  ansible.builtin.template:
+    src: timesyncd.conf.j2
+    dest: /etc/systemd/timesyncd.conf
+    owner: root
+    group: root
+    mode: "0644"
+    backup: true
+  notify: "restart timesyncd"
+
+- name: "Start and enable systemd-timesyncd service"
+  ansible.builtin.service:
+    name: systemd-timesyncd
+    state: started
+    enabled: true
+
+- name: "Install packets acl, locales, bash-completion, vim, git, tree,\
+    curl, wget, less, iputils-ping, traceroute, pip"
+  ansible.builtin.apt:
+    name:
+      - acl
+      - locales
+      - bash-completion
+      - vim
+      - git
+      - tree
+      - curl
+      - wget
+      - less
+      - iputils-ping
+      - traceroute
+      - pip
+    update_cache: true
+    state: present
+
+- name: "Locales generate"
+  community.general.locale_gen:
+    name: "{{ item }}"
+  with_items:
+    - en_US
+    - ru_RU
+    - en_US.UTF-8
+    - ru_RU.UTF-8
+
+- name: "Set locale in file /etc/default/locale"
+  ansible.builtin.lineinfile:
+    path: /etc/default/locale
+    regexp: "^LANG="
+    line: "LANG=ru_RU.UTF-8"
+
+- name: "Check for reboot-required OS state"
+  ansible.builtin.command: cat /var/run/reboot-required
+  register: __reboot_required
+  ignore_errors: true
+  failed_when: false
+  changed_when: false
+
+- name: "Linux kernel updated, rebooting ..."
+  ansible.builtin.reboot:
+    reboot_timeout: 1800
+  when:
+    - os_base_setup__reboot_when_kernel_update
+    - __reboot_required.rc == 0
+
+- name: "Create users"
+  ansible.builtin.user:
+    name: "{{ item.name }}"
+    password: "{{ item.password | password_hash('sha512', 65534 | random(seed=inventory_hostname) | string) }}"
+    shell: /bin/bash
+    create_home: true
+    home: "/home/{{ item.name }}"
+    groups: "{{ item.groups | default(omit) }}"
+    append: "{{ true if item.groups is defined else false }}"
+  loop: "{{ os_base_setup__users }}"
+  when: os_base_setup__users is defined
+
+- name: "Set on for password authentication through SSH connection"
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "^PasswordAuthentication"
+    line: "PasswordAuthentication yes"
+    state: present
+    backup: true
+    validate: /usr/sbin/sshd -t -f %s
+  notify: "restart sshd"
+  when: os_base_setup__enable_ssh_password_authentication

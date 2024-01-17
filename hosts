@@ -1,0 +1,11 @@
+[all]
+
+
+[all:vars]
+ansible_python_interpreter=/usr/bin/python3
+
+[os_base_setup]
+192.168.88.101 ansible_user=toor
+
+[node_exporter]
+192.168.88.101 ansible_user=toor

@@ -1,0 +1,2 @@
+---
+__os_base_setup__ntp_client: systemd-timesyncd

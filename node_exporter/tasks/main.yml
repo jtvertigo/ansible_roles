@@ -1,0 +1,51 @@
+---
+- name: "Create group"
+  ansible.builtin.group:
+    name: "{{ __node_exporter__group }}"
+    state: present
+    system: true
+
+- name: "Create user and add group as primary"
+  ansible.builtin.user:
+    name: "{{ __node_exporter__user }}"
+    group: "{{ __node_exporter__group }}"
+    system: true
+    shell: /bin/false
+    create_home: false
+
+- name: "Download node_exporter from GitHub"
+  ansible.builtin.get_url:
+    url: "https://github.com/prometheus/node_exporter/releases/download/\
+      v{{ node_exporter__version }}\
+      /node_exporter-{{ node_exporter__version }}.linux-amd64.tar.gz"
+    dest: "/tmp/node_exporter-{{ node_exporter__version }}.linux-amd64.tar.gz"
+    mode: "0644"
+
+- name: "Extract and install node_exporter"
+  ansible.builtin.unarchive:
+    src: "/tmp/node_exporter-{{ node_exporter__version }}.linux-amd64.tar.gz"
+    dest: "/usr/local/bin"
+    remote_src: true
+    owner: "{{ __node_exporter__user }}"
+    group: "{{ __node_exporter__group }}"
+    mode: u=rwx,g=rwx,o=r
+    extra_opts:
+      - --strip-components=1
+      - "node_exporter-{{ node_exporter__version }}.linux-amd64/node_exporter"
+
+- name: "Create node_exporter systemd service"
+  ansible.builtin.template:
+    src: node_exporter.service.j2
+    dest: /etc/systemd/system/node_exporter.service
+    owner: root
+    group: root
+    mode: "0644"
+    backup: true
+  notify: "restart node_exporter"
+
+- name: "Start and enable node_exporter systemd service"
+  ansible.builtin.service:
+    name: node_exporter
+    state: started
+    enabled: true
+    daemon_reload: true

@@ -1,0 +1,20 @@
+---
+- name: "Base OS components setup (Ubuntu 20.04, Ubuntu 22.04)"
+  hosts: os_base_setup
+  gather_facts: true
+  become: true
+
+  roles:
+    - role: os_base_setup
+      vars:
+        os_base_setup__reboot_when_kernel_update: true
+        os_base_setup__enable_ssh_password_authentication: false
+        os_base_setup__timezone: "Europe/Moscow"
+        # os_base_setup__ntp_servers:
+        #   - 10.10.10.1
+        #   - 10.10.10.2
+        #   - 10.10.10.3
+        # os_base_setup__users:
+        #   - name: user1
+        #     password: password
+        #     groups: sudo

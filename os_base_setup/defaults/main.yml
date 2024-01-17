@@ -1,0 +1,17 @@
+---
+os_base_setup__reboot_when_kernel_update: true
+os_base_setup__enable_ssh_password_authentication: true
+os_base_setup__timezone: "Europe/Moscow"
+# os_base_setup__ntp_servers:
+#   - 10.10.10.1
+#   - 10.10.10.2
+os_base_setup__ntp_fallback_servers:
+  - ntp.ubuntu.com
+  - time.google.com
+  - 0.ru.pool.ntp.org
+# os_base_setup__users:
+#   - name: user1
+#     password: password
+#     groups: sudo
+#   - name: user2
+#     password: password

@@ -1,0 +1,6 @@
+---
+- name: "Restart node_exporter systemd service"
+  ansible.builtin.service:
+    name: node_exporter
+    state: restarted
+  listen: "restart node_exporter"

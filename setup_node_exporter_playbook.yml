@@ -1,0 +1,16 @@
+---
+- name: "Install node_exporter (Ubuntu 20.04, Ubuntu 22.04)"
+  hosts: node_exporter
+  gather_facts: true
+  become: true
+
+  roles:
+    - role: node_exporter
+      vars:
+        node_exporter__version: "1.6.0"
+        node_exporter__port: 9100
+      # environment:
+      #   http_proxy: "http://user:password@10.20.30.40:3128"
+      #   https_proxy: "http://user:password@10.20.30.40:3128"
+      #   HTTP_PROXY: "http://user:password@10.20.30.40:3128"
+      #   HTTPS_PROXY: "http://user:password@10.20.30.40:3128"
