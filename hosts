@@ -13,3 +13,6 @@ ansible_python_interpreter=/usr/bin/python3
 [keepalived]
 192.168.88.101 ansible_user=toor
 192.168.88.102 ansible_user=toor
+
+[k8s]
+192.168.88.101 ansible_user=toor

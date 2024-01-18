@@ -1,0 +1,16 @@
+---
+- name: "Setup kubernetes cluster (control-plane node)\
+    with kubeadm on Ubuntu 22.04"
+  hosts: k8s
+  gather_facts: true
+  become: true
+
+  roles:
+    - role: k8s
+      vars:
+        k8s__disable_swap: true
+        k8s__k8s_short_version: 1.29
+        k8s__k8s_full_version: 1.29.0
+        k8s__k8s_pod_network_cidr: "10.0.0.0/16"
+        k8s__calico_version: 3.27.0
+        k8s__untaint_master_nodes: true

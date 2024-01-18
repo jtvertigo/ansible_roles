@@ -1,0 +1,229 @@
+---
+# - name: "Debug - host's all information"
+#   ansible.builtin.debug:
+#     var: ansible_facts
+
+- name: "Get information about swap using"
+  ansible.builtin.command: "swapon --show"
+  ignore_errors: true
+  register: __swap_status
+  changed_when: __swap_status.rc != 0
+
+# - name: "Debug"
+#   ansible.builtin.debug:
+#     var: __swap_status
+
+- name: "Disable swap"
+  ansible.builtin.command: "swapoff -a"
+  changed_when: ! __swap_status.stdout
+  when:
+    # - __swap_status.rc == 0
+    # - __swap_status.stdout != ""
+    - ! __swap_status.stdout
+    - k8s__disable_swap
+
+- name: "Disable swap in file /etc/fstab"
+  ansible.builtin.replace:
+    path: /etc/fstab
+    regexp: "^/swap"
+    replace: '# \g<0>'
+  when: k8s__disable_swap
+
+- name: "Install packets apt-transport-https ca-certificates \
+    gpg containerd pip"
+  ansible.builtin.apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - gpg
+      - containerd
+      - pip
+    update_cache: true
+    state: present
+
+- name: "Install pip dependencies"
+  ansible.builtin.pip:
+    name:
+      - pyyaml
+      - kubernetes
+
+- name: "Start and enable containerd systemd service"
+  ansible.builtin.service:
+    name: containerd
+    state: started
+    enabled: true
+
+- name: "Enable modprobe br_netfilter"
+  community.general.modprobe:
+    name: br_netfilter
+    state: present
+    persistent: present
+
+- name: "Setup sysctl parameters"
+  ansible.posix.sysctl:
+    name: "{{ item }}"
+    value: "1"
+    sysctl_set: true
+    state: present
+    reload: true
+    sysctl_file: /etc/sysctl.d/kubernetes.conf
+  loop:
+    - net.ipv4.ip_forward
+    - net.ipv4.ip_nonlocal_bind
+    - net.bridge.bridge-nf-call-iptables
+    - net.bridge.bridge-nf-call-ip6tables
+
+- name: "Download kubernetes repo key"
+  ansible.builtin.get_url:
+    url: "https://pkgs.k8s.io/core:/stable:/v{{ k8s__k8s_short_version }}\
+      /deb/Release.key"
+    dest: "/tmp/Release.key"
+    mode: "0644"
+    owner: root
+    group: root
+
+- name: "Get information about gpg-key"
+  ansible.builtin.stat:
+    path: "/etc/apt/keyrings/kubernetes-apt-keyring.gpg"
+  register: __file_status
+
+- name: "Convert gpg-key into binary"
+  ansible.builtin.command:
+    "gpg -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg \
+    --dearmor /tmp/Release.key"
+  changed_when: not __file_status.stat.exists
+  when: not __file_status.stat.exists
+
+- name: "Add kubernetes repo"
+  ansible.builtin.apt_repository:
+    filename: kubernetes
+    repo: "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v{{ k8s__k8s_short_version }}/deb/ /"
+    state: present
+
+- name: "Create directory /etc/containerd"
+  ansible.builtin.file:
+    path: /etc/containerd
+    state: directory
+    mode: "0755"
+
+- name: "Get information about config file for containerd"
+  ansible.builtin.stat:
+    path: "/etc/containerd/config.toml"
+  register: __file_status
+
+- name: "Generate config file for containerd"
+  ansible.builtin.shell: >
+    containerd config default > /etc/containerd/config.toml
+  changed_when: not __file_status.stat.exists
+  when: not __file_status.stat.exists
+
+- name: "Set parameters in containerd's config file"
+  ansible.builtin.replace:
+    path: /etc/containerd/config.toml
+    regexp: "SystemdCgroup = false"
+    replace: "SystemdCgroup = true"
+  notify: "restart containerd"
+
+
+- name: "Create file /etc/crictl.yaml"
+  ansible.builtin.copy:
+    content: |
+      runtime-endpoint: "unix:///run/containerd/containerd.sock"
+      image-endpoint: "unix:///run/containerd/containerd.sock"
+      timeout: 0
+      debug: false
+      pull-image-on-create: false
+      disable-pull-on-run: false
+    dest: /etc/crictl.yaml
+    mode: "0644"
+  notify: "restart containerd"
+
+- name: "Restart containerd systemd service (if necessary)"
+  ansible.builtin.meta: flush_handlers
+
+- name: "Install packets kubeadm kubelet kubectl"
+  ansible.builtin.apt:
+    name:
+      - "kubeadm={{ k8s__k8s_full_version }}-1.1"
+      - "kubelet={{ k8s__k8s_full_version }}-1.1"
+      - "kubectl={{ k8s__k8s_full_version }}-1.1"
+    update_cache: true
+    state: present
+
+- name: "Cancel updates for k8s packets"
+  ansible.builtin.command: >
+    apt-mark hold {{ item }}
+  register: __apt_mark_hold_answer
+  loop:
+    - kubeadm
+    - kubelet
+    - kubectl
+  changed_when:
+    - __apt_mark_hold_answer['stdout'] != "{{ item }} was already set on hold."
+    - __apt_mark_hold_answer['stdout'] != "{{ item }} уже помечен как зафиксированный."
+
+- name: "Check if kubernetes cluster installed"
+  ansible.builtin.command: >
+    kubectl cluster-info
+  environment:
+    KUBECONFIG: /home/{{ ansible_user }}/.kube/config
+  register: __kubectl_cluster_info
+  # ignore_errors: true
+  failed_when: __kubectl_cluster_info.rc > 1
+  changed_when: __kubectl_cluster_info.rc != 0
+
+- name: "Check if file /etc/kubernetes/admin.conf already exists"
+  ansible.builtin.stat:
+    path: "/etc/kubernetes/admin.conf"
+  register: __admin_conf_file_status
+
+- name: "Install kubernetes cluster"
+  ansible.builtin.command: >
+    kubeadm init
+      --apiserver-advertise-address={{ ansible_facts['default_ipv4']['address'] }}
+      --pod-network-cidr={{ k8s__k8s_pod_network_cidr | quote }}
+  changed_when: not __admin_conf_file_status.stat.exists
+  when:
+    - __kubectl_cluster_info.rc != 0
+    - not __admin_conf_file_status.stat.exists
+    # ignore_errors: true
+
+- name: "Create directory .kube in user's home directory"
+  ansible.builtin.file:
+    path: "/home/{{ ansible_user }}/.kube"
+    state: directory
+    mode: "0755"
+
+- name: "Copy kubernetes certificates config file in user's home directory"
+  ansible.builtin.copy:
+    src: /etc/kubernetes/admin.conf
+    dest: "/home/{{ ansible_user }}/.kube/config"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0600"
+    remote_src: true
+
+- name: "Download calico's manifest for kubernetes"
+  ansible.builtin.get_url:
+    url: "https://raw.githubusercontent.com/projectcalico/calico/\
+      v{{ k8s__calico_version }}/manifests/calico.yaml"
+    dest: "/tmp/calico.yml"
+    mode: "0644"
+
+- name: "Install calico in kubernetes cluster"
+  kubernetes.core.k8s:
+    src: /tmp/calico.yml
+    state: present
+  environment:
+    KUBECONFIG: /home/{{ ansible_user }}/.kube/config
+
+- name: "Taint off from master node"
+  kubernetes.core.k8s_taint:
+    state: absent
+    name: "{{ ansible_facts['hostname'] }}"
+    taints:
+      - effect: NoSchedule
+        key: "node-role.kubernetes.io/control-plane"
+  environment:
+    KUBECONFIG: /home/{{ ansible_user }}/.kube/config
+  when: k8s__untaint_master_nodes
