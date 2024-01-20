@@ -10,6 +10,10 @@ ansible_python_interpreter=/usr/bin/python3
 [node_exporter]
 192.168.88.101 ansible_user=toor
 
+[haproxy]
+192.168.88.101 ansible_user=toor
+192.168.88.102 ansible_user=toor
+
 [keepalived]
 192.168.88.101 ansible_user=toor
 192.168.88.102 ansible_user=toor

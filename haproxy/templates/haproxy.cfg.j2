@@ -1,0 +1,27 @@
+global
+ maxconn 3000
+defaults
+ log global
+ mode tcp
+ retries 2
+ timeout client 30m
+ timeout connect 4s
+ timeout server 30m
+ timeout check 5s
+frontend stats
+   bind *:{{ haproxy__metrics['bind_port'] }}
+   mode http
+   http-request use-service prometheus-exporter if { path /metrics }
+   stats enable
+   stats uri /
+   stats refresh 10s
+{% for instance in haproxy__instances %}
+listen {{ instance.name }}
+ bind *:{{ instance.bind_port }}
+ option httpchk GET /master
+ http-check expect status 200
+ default-server inter 3s fastinter 1s fall 2 rise 2 on-marked-down shutdown-sessions
+{% for server in instance.servers %}
+ server {{ server }} maxconn 2000 check port {{ instance.check_port }}
+{% endfor %}
+{% endfor %}

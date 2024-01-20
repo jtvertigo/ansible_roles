@@ -1,0 +1,6 @@
+---
+- name: "Restart haproxy systemd service"
+  ansible.builtin.service:
+    name: haproxy
+    state: restarted
+  listen: "restart haproxy"

@@ -1,0 +1,40 @@
+---
+- name: "Install packet software-properties-common"
+  ansible.builtin.apt:
+    name: "software-properties-common"
+    update_cache: true
+    state: present
+
+- name: "Add haproxy repo with LTS-releases"
+  ansible.builtin.apt_repository:
+    repo: ppa:vbernat/haproxy-{{ __haproxy__version }}
+    update_cache: true
+
+- name: "Install haproxy"
+  ansible.builtin.apt:
+    name: "haproxy"
+    state: present
+
+- name: "Cancel update for haproxy"
+  ansible.builtin.command: apt-mark hold haproxy
+  register: __apt_mark_hold_answer
+  changed_when:
+    - __apt_mark_hold_answer['stdout'] != "haproxy was already set on hold."
+    - __apt_mark_hold_answer['stdout'] != "haproxy уже помечен как зафиксированный."
+
+- name: "Generate haproxy's configuration file"
+  ansible.builtin.template:
+    src: "haproxy.cfg.j2"
+    dest: "/etc/haproxy/haproxy.cfg"
+    owner: root
+    group: root
+    mode: '0644'
+    backup: true
+    validate: /usr/sbin/haproxy -c -f %s
+  notify: "restart haproxy"
+
+- name: "Start haproxy systemd service"
+  ansible.builtin.service:
+    name: haproxy
+    state: started
+    enabled: true

@@ -1,0 +1,23 @@
+---
+haproxy__instances:
+  - name: postgres_5432
+    bind_port: 5000
+    check_port: 8008
+    servers:
+      - srv-db-01 192.168.88.101:5432
+      - srv-db-02 192.168.88.102:5432
+  - name: postgres_5433
+    bind_port: 5001
+    check_port: 8009
+    servers:
+      - srv-db-01 192.168.88.101:5433
+      - srv-db-02 192.168.88.102:5433
+  - name: postgres_5434
+    bind_port: 5002
+    check_port: 8010
+    servers:
+      - srv-db-01 192.168.88.102:5434
+      - srv-db-02 192.168.88.102:5434
+
+haproxy__metrics:
+  bind_port: 7000
