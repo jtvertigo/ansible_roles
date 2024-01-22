@@ -1,0 +1,263 @@
+---
+- name: "Install packets acl, pip, locales"
+  ansible.builtin.apt:
+    name:
+      - acl
+      - pip
+      - locales
+    update_cache: true
+    state: present
+
+- name: "Locales generate"
+  community.general.locale_gen:
+    name: "{{ item }}"
+  with_items:
+    - en_US
+    - ru_RU
+    - en_US.UTF-8
+    - ru_RU.UTF-8
+
+- name: "Set locale in file /etc/default/locale"
+  ansible.builtin.lineinfile:
+    path: /etc/default/locale
+    regexp: "^LANG="
+    line: "LANG=ru_RU.UTF-8"
+
+- name: "Install psycopg2-binary pip packet"
+  # for community.postgresql.postgresql_user ansible module
+  ansible.builtin.pip:
+    name: psycopg2-binary
+    state: present
+
+- name: "PostgreSQL cluster initialization prepare"
+  when: postgresql_1c__install_postgresql
+  block:
+    - name: "Copy postgresql repo lists"
+      ansible.builtin.copy:
+        src: repos/{{ item }}
+        dest: /etc/apt/sources.list.d/{{ item }}
+        owner: root
+        group: root
+        mode: '0644'
+      loop:
+        - ubuntu-18.04.list
+        - postgresql.list
+
+    - name: "Copy gpg-keys for repos"
+      ansible.builtin.copy:
+        src: repos/{{ item }}
+        dest: /usr/share/keyrings/{{ item }}
+        owner: root
+        group: root
+        mode: '0644'
+      loop:
+        - ubuntu-18.04.gpg
+        - postgresql.gpg
+
+    - name: "Update apt cache"
+      ansible.builtin.apt:
+        update_cache: true
+
+    - name: "Copy *.deb files"
+      ansible.builtin.copy:
+        src: pgsql{{ postgresql_1c__postgresql_version }}
+        dest: /tmp
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: "Install PostgreSQL from deb packets"
+      ansible.builtin.apt:
+        deb: /tmp/pgsql{{ postgresql_1c__postgresql_version }}/{{ item }}
+      loop:
+        - libpq5_{{ postgresql_1c__postgresql_version_with_minor }}-1.1C_amd64.deb
+        - postgresql-client-15_{{ postgresql_1c__postgresql_version_with_minor }}-1.1C_amd64.deb
+        - postgresql-{{ postgresql_1c__postgresql_version }}_{{ postgresql_1c__postgresql_version_with_minor }}-1.1C_amd64.deb
+        - libpq-dev_{{ postgresql_1c__postgresql_version_with_minor }}-1.1C_amd64.deb
+
+    - name: "Cancel update for postgresql packets"
+      ansible.builtin.command: >
+        apt-mark hold {{ item }}
+      register: __apt_mark_hold_answer
+      loop:
+        - libpq5
+        - postgresql-client-15
+        - postgresql-15
+        - libpq-dev  # fixme?
+      changed_when:
+        - __apt_mark_hold_answer['stdout'] != "{{ item }} was already set on hold."
+        - __apt_mark_hold_answer['stdout'] != "{{ item }} уже помечен как зафиксированный."
+        # - 'item | string not in "{{ item }} was already set on hold."'
+        # - 'item | string not in "{{ item }} уже помечен как зафиксированный.'
+
+- name: "PostgreSQL cluster initialization"
+  when: postgresql_1c__cluster_initialize
+  block:
+    - name: "Create postgresql cluster directory"
+      ansible.builtin.file:
+        path: "{{ postgresql_1c__cluster_data_dir }}"
+        state: directory
+        mode: '0700'
+        owner: postgres
+        group: postgres
+
+    - name: "Check if directory for standard 'main' cluster exists"
+      ansible.builtin.stat:
+        path: "/etc/postgresql/{{ postgresql_1c__postgresql_version }}/main"
+      register: __postgresql_main_directory_status
+
+    # - name: "Debug"
+    #   ansible.builtin.debug:
+    #     var: __postgresql_main_directory_status
+
+    - name: "Delete standard 'main' cluster"
+      become: true
+      become_user: postgres
+      ansible.builtin.command: >
+        pg_dropcluster --stop {{ postgresql_1c__postgresql_version }} main
+      changed_when: __postgresql_main_directory_status.stat.exists
+      when:
+        - postgresql_1c__drop_main_cluster
+        - __postgresql_main_directory_status.stat.exists
+
+    - name: "Postgresql cluster initialization ('main' cluster name)"
+      become: true
+      become_user: postgres
+      ansible.builtin.command: >
+        /usr/lib/postgresql/{{ postgresql_1c__postgresql_version }}/bin/initdb
+          -D {{ postgresql_1c__cluster_data_dir }}
+          -U postgres
+          --locale=ru_RU.UTF-8
+          --data-checksums
+      changed_when: __postgresql_main_directory_status.stat.exists
+      when:
+        - postgresql_1c__cluster_name == "main"
+        - not postgresql_1c__drop_main_cluster
+
+    - name: "Postgresql cluster initialization \
+        (recreate with 'main' cluster name)"
+      become: true
+      become_user: postgres
+      ansible.builtin.command: >
+        pg_createcluster {{ postgresql_1c__postgresql_version }}\
+          {{ postgresql_1c__cluster_name }}
+            -d {{ postgresql_1c__cluster_data_dir }}
+            -u postgres
+            --locale=ru_RU.UTF-8
+            -- '--data-checksums'
+      changed_when: not __postgresql_main_directory_status.stat.exists
+      when:
+        - postgresql_1c__cluster_name == "main"
+        - postgresql_1c__drop_main_cluster
+
+    - name: "Check if directory for cluster exists"
+      ansible.builtin.stat:
+        path: "/etc/postgresql/{{ postgresql_1c__postgresql_version }}/{{ postgresql_1c__cluster_name }}"
+      register: __postgresql_cluster_directory_status
+      when: postgresql_1c__cluster_name != "main"
+    - name: "Postgresql cluster initialization"
+      become: true
+      become_user: postgres
+      ansible.builtin.command: >
+        pg_createcluster {{ postgresql_1c__postgresql_version }} \
+          {{ postgresql_1c__cluster_name }}
+            -d {{ postgresql_1c__cluster_data_dir }}
+            -u postgres
+            --locale=ru_RU.UTF-8
+            -- '--data-checksums'
+      changed_when: not __postgresql_cluster_directory_status.stat.exists
+      when:
+        - postgresql_1c__cluster_name != "main"
+        - not __postgresql_cluster_directory_status.stat.exists
+
+- name: "Setup settings in postgresql.conf \
+    (restart systemd postgresql service required)"
+  ansible.builtin.lineinfile:
+    path: "/etc/postgresql/{{ postgresql_1c__postgresql_version }}\
+      /{{ postgresql_1c__cluster_name }}/postgresql.conf"
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+  loop: "{{ __postgresql_1c__pg_settings_restart }}"
+  notify: "restart postgresql cluster"
+  when: postgresql_1c__set_pg_settings
+
+- name: "Setup settings in postgresql.conf \
+    (reload systemd postgresql service required"
+  ansible.builtin.lineinfile:
+    path: "/etc/postgresql/{{ postgresql_1c__postgresql_version }}\
+      /{{ postgresql_1c__cluster_name }}/postgresql.conf"
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+  loop: "{{ __postgresql_1c__pg_settings_reload }}"
+  notify: "reload postgresql cluster"
+  when: postgresql_1c__set_pg_settings
+
+- name: "Setup base settings in pg_hba.conf"
+  community.postgresql.postgresql_pg_hba:
+    dest: "/etc/postgresql/{{ postgresql_1c__postgresql_version }}\
+      /{{ postgresql_1c__cluster_name }}/pg_hba.conf"
+    contype: "{{ item.contype }}"
+    users: "{{ item.users }}"
+    source: "{{ item.source }}"
+    databases: "{{ item.databases }}"
+    method: "{{ item.method }}"
+    comment: "{{ item.comment }}"
+    state: "{{ item.state }}"
+    backup: true
+    keep_comments_at_rules: true
+  loop: "{{ __postgresql_1c__pg_hba_settings }}"
+  notify: "reload postgresql cluster"
+  when: postgresql_1c__set_pg_hba_rules
+
+- name: "Setup main settings in pg_hba.conf"
+  community.postgresql.postgresql_pg_hba:
+    dest: "/etc/postgresql/{{ postgresql_1c__postgresql_version }}\
+      /{{ postgresql_1c__cluster_name }}/pg_hba.conf"
+    contype: "{{ item.contype }}"
+    users: "{{ item.users }}"
+    source: "{{ item.source }}"
+    databases: "{{ item.databases }}"
+    method: "{{ item.method }}"
+    comment: "{{ item.comment }}"
+    state: "{{ item.state }}"
+    backup: true
+    keep_comments_at_rules: true
+  loop: "{{ postgresql_1c__pg_hba_settings }}"
+  notify: "reload postgresql cluster"
+  when: postgresql_1c__pg_hba_settings is defined
+
+- name: "Start postgresql systemd service"
+  ansible.builtin.service:
+    name: postgresql
+    state: started
+    enabled: true
+
+- name: "Start systemd service postgresql@cluster"
+  ansible.builtin.service:
+    name: "postgresql@{{ postgresql_1c__postgresql_version }}\
+      -{{ postgresql_1c__cluster_name }}"
+    state: started
+    enabled: true
+
+- name: "Set password for user postgres"
+  become: true
+  become_user: postgres
+  community.postgresql.postgresql_user:
+    port: "{{ postgresql_1c__cluster_port }}"
+    name: "postgres"
+    password: "{{ postgresql_1c__cluster_pg_password }}"
+    encrypted: true
+  when: postgresql_1c__cluster_pg_password is defined
+
+- name: "Create usr1cv8 with rights"
+  become: true
+  become_user: postgres
+  community.postgresql.postgresql_user:
+    port: "{{ postgresql_1c__cluster_port }}"
+    name: "{{ postgresql_1c__cluster_1c_user }}"
+    password: "{{ postgresql_1c__cluster_1c_user_password }}"
+    role_attr_flags: LOGIN,SUPERUSER,CREATEDB,CREATEROLE,INHERIT,NOREPLICATION
+    conn_limit: -1
+  when:
+    - postgresql_1c__cluster_1c_user is defined
+    - postgresql_1c__cluster_1c_user_password is defined

@@ -1,0 +1,28 @@
+---
+postgresql_1c__postgresql_version: 15
+postgresql_1c__postgresql_version_with_minor: 15.3
+postgresql_1c__drop_main_cluster: true
+postgresql_1c__cluster_name: main
+postgresql_1c__cluster_port: 5432
+postgresql_1c__cluster_data_dir: /1c/pgdata/{{ postgresql_1c__cluster_name }}
+postgresql_1c__cluster_pg_password: password
+postgresql_1c__cluster_1c_user: usr1cv8
+postgresql_1c__cluster_1c_user_password: password
+postgresql_1c__set_pg_settings: true
+postgresql_1c__set_pg_hba_rules: true
+postgresql_1c__timezone: Europe/Moscow
+# postgresql_1c__pg_hba_settings:
+#   - contype: host
+#     databases: all
+#     users: all
+#     source: 10.20.30.1/32
+#     method: md5
+#     comment: " app server-1"
+#     state: present
+#   - contype: host
+#     databases: all
+#     users: all
+#     source: 10.20.30.0/24
+#     method: md5
+#     comment: " local network"
+#     state: present

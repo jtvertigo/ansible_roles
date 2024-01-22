@@ -1,0 +1,155 @@
+---
+__postgresql_1c__pg_settings_restart:
+  - regexp: '^data_directory = '
+    line: "data_directory = '{{ postgresql_1c__cluster_data_dir }}'"
+  - regexp: '^listen_addresses = '
+    line: "listen_addresses = '*'"
+  - regexp: '^shared_buffers = '
+    line: 'shared_buffers = {{ (ansible_facts["memtotal_mb"] * 0.25) | int }}MB'
+  - regexp: '^max_files_per_process = '
+    line: 'max_files_per_process = 10000'
+  - regexp: '^wal_level = '
+    line: 'wal_level = replica'
+  - regexp: '^autovacuum_max_workers = '
+    line: "autovacuum_max_workers = {{ (ansible_facts['processor_vcpus'] * 0.5) | int }}"
+  - regexp: '^max_locks_per_transaction = '
+    line: 'max_locks_per_transaction = 256'
+  - regexp: '^archive_mode = '
+    line: 'archive_mode = off'
+  - regexp: '^shared_preload_libraries = '
+    line: "shared_preload_libraries = 'plantuner'"
+
+__postgresql_1c__pg_settings_reload:
+  - regexp: '^port = '
+    line: "port = {{ postgresql_1c__cluster_port }}"
+  - regexp: '^max_connections = '
+    line: 'max_connections = 1000'
+  - regexp: '^ssl = '
+    line: 'ssl = off'
+  - regexp: '^max_wal_size = '
+    line: 'max_wal_size = 8GB'
+  - regexp: '^min_wal_size = '
+    line: 'min_wal_size = 4GB'
+  - regexp: '^log_timezone = '
+    line: "log_timezone = '{{ postgresql_1c__timezone }}'"
+  - regexp: '^timezone = '
+    line: "timezone = '{{ postgresql_1c__timezone }}'"
+  - regexp: '^lc_messages = '
+    line: "lc_messages = 'ru_RU.UTF-8'"
+  - regexp: '^lc_monetary = '
+    line: "lc_monetary = 'ru_RU.UTF-8'"
+  - regexp: '^lc_numeric = '
+    line: "lc_numeric = 'ru_RU.UTF-8'"
+  - regexp: '^lc_time = '
+    line: "lc_time = 'ru_RU.UTF-8'"
+  - regexp: '^default_text_search_config = '
+    line: "default_text_search_config = 'pg_catalog.russian'"
+  - regexp: '^temp_buffers = '
+    line: 'temp_buffers = 256MB'
+  - regexp: '^work_mem = '
+    line: 'work_mem = 256MB'
+  - regexp: '^maintenance_work_mem = '
+    line: 'maintenance_work_mem = 1024MB'
+  - regexp: '^max_parallel_workers_per_gather = '
+    line: 'max_parallel_workers_per_gather = 0'
+  - regexp: '^synchronous_commit = '
+    line: 'synchronous_commit = off'
+  - regexp: '^commit_delay = '
+    line: 'commit_delay = 1000'
+  - regexp: '^checkpoint_timeout = '
+    line: 'checkpoint_timeout = 15min'
+  - regexp: '^enable_bitmapscan = '
+    line: 'enable_bitmapscan = on'
+  - regexp: '^enable_hashagg = '
+    line: 'enable_hashagg = on'
+  - regexp: '^enable_hashjoin = '
+    line: 'enable_hashjoin = on'
+  - regexp: '^enable_indexscan = '
+    line: 'enable_indexscan = on'
+  - regexp: '^enable_indexonlyscan = '
+    line: 'enable_indexonlyscan = on'
+  - regexp: '^enable_material = '
+    line: 'enable_material = on'
+  - regexp: '^enable_mergejoin = '
+    line: 'enable_mergejoin = off'
+  - regexp: '^enable_nestloop = '
+    line: 'enable_nestloop = on'
+  - regexp: '^enable_seqscan = '
+    line: 'enable_seqscan = on'
+  - regexp: '^enable_sort = '
+    line: 'enable_sort = on'
+  - regexp: '^enable_tidscan = '
+    line: 'enable_tidscan = on'
+  - regexp: '^seq_page_cost = '
+    line: 'seq_page_cost = 1.0'
+  - regexp: '^random_page_cost = '
+    line: 'random_page_cost = 1.1'
+  - regexp: '^effective_cache_size = '
+    line: 'effective_cache_size = {{ (ansible_facts["memtotal_mb"] * 0.75) | int }}MB'
+  - regexp: '^from_collapse_limit = '
+    line: 'from_collapse_limit = 8'
+  - regexp: '^join_collapse_limit = '
+    line: 'join_collapse_limit = 8'
+  - regexp: '^log_min_duration_statement = '
+    line: '#log_min_duration_statement = 10000'
+  - regexp: '^autovacuum = '
+    line: 'autovacuum = on'
+  - regexp: '^log_autovacuum_min_duration = '
+    line: '#log_autovacuum_min_duration = 10000'
+  - regexp: '^autovacuum_naptime = '
+    line: 'autovacuum_naptime = 20s'
+  - regexp: '^autovacuum_vacuum_scale_factor = '
+    line: 'autovacuum_vacuum_scale_factor = 0.01'
+  - regexp: '^autovacuum_analyze_scale_factor = '
+    line: 'autovacuum_analyze_scale_factor = 0.005'
+  - regexp: '^vacuum_cost_limit = '
+    line: "vacuum_cost_limit = {{ (ansible_facts['processor_vcpus'] * 0.5 * 100) | int }}"
+  - regexp: '^escape_string_warning = '
+    line: 'escape_string_warning = off'
+  - regexp: '^standard_conforming_strings = '
+    line: 'standard_conforming_strings = off'
+  - regexp: '^row_security = '
+    line: 'row_security = off'
+  - regexp: '^max_parallel_maintenance_workers= '
+    line: "max_parallel_maintenance_workers = {{ (ansible_facts['processor_vcpus'] / 4) | int }}"
+  - regexp: '^effective_io_concurrency = '
+    line: 'effective_io_concurrency = 200'
+  - regexp: '^plantuner.fix_empty_table  = '
+    line: 'plantuner.fix_empty_table = on'
+
+__postgresql_1c__pg_hba_settings:
+  - contype: local
+    databases: all
+    users: all
+    source: ""
+    method: md5
+    comment: ""
+    state: present
+  - contype: host
+    databases: all
+    users: all
+    source: 127.0.0.1/32
+    method: md5
+    comment: ""
+    state: present
+  - contype: host
+    databases: replication
+    users: all
+    source: 127.0.0.1/32
+    method: md5
+    comment: ""
+    state: present
+  - contype: host
+    databases: all
+    users: all
+    source: ::1/128
+    method: scram-sha-256
+    comment: ""
+    state: absent
+  - contype: host
+    databases: replication
+    users: all
+    source: ::1/128
+    method: scram-sha-256
+    comment: ""
+    state: absent

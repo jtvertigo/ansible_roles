@@ -1,0 +1,19 @@
+---
+- name: "Restart postgresql@cluster systemd service"
+  ansible.builtin.service:
+    name: "postgresql@{{ postgresql_1c__postgresql_version }}-{{ postgresql_1c__cluster_name }}"
+    state: restarted
+  listen: "restart postgresql cluster"
+
+# - name: "Update postgresql cluster configuration"
+#   become: true
+#   become_user: postgres
+#   ansible.builtin.command: "psql -p {{ postgresql_1c__cluster_port }} -c 'SELECT pg_reload_conf()'"
+#   listen: "reload postgresql cluster"
+
+- name: "Reload postgresql@cluster systemd service\
+    (Update postgresql cluster configuration)"
+  ansible.builtin.service:
+    name: "postgresql@{{ postgresql_1c__postgresql_version }}-{{ postgresql_1c__cluster_name }}"
+    state: reloaded
+  listen: "reload postgresql cluster"
