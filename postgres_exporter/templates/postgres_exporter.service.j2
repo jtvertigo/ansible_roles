@@ -1,0 +1,19 @@
+[Unit]
+Description=Prometheus PostgreSQL Exporter
+After=network.target
+
+[Service]
+Type=simple
+Restart=always
+User=postgres
+Group=postgres
+{% if postgres_exporter__pgsql_cluster_create_monitor_user == true %}
+Environment=DATA_SOURCE_NAME=postgresql://{{ postgres_exporter__pgsql_cluster_monitor_user }}:{{ postgres_exporter__pgsql_cluster_monitor_user_password }}@{{ postgres_exporter__pgsql_cluster_host }}:{{ postgres_exporter__pgsql_cluster_port }}/postgres?sslmode=disable
+{% else %}
+Environment=DATA_SOURCE_NAME="user=postgres port={{ postgres_exporter__pgsql_cluster_port }} host=/var/run/postgresql/ sslmode=disable"
+{% endif %}
+Environment=PG_EXPORTER_EXTEND_QUERY_PATH=/opt/postgres_exporter/queries.yml
+ExecStart=/usr/local/bin/postgres_exporter --web.listen-address :{{ postgres_exporter__port }}
+
+[Install]
+WantedBy=multi-user.target

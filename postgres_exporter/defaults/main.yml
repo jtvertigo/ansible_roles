@@ -1,0 +1,10 @@
+---
+postgres_exporter__version: "0.15.0"
+postgres_exporter__port: 9187
+postgres_exporter__pgsql_cluster_host: 127.0.0.1
+postgres_exporter__pgsql_cluster_port: 5432
+postgres_exporter__pgsql_cluster_create_monitor_user: true
+postgres_exporter__pgsql_cluster_monitor_user: monitor
+postgres_exporter__pgsql_cluster_monitor_user_password: password
+postgres_exporter__pgsql_cluster_admin_user: postgres
+postgres_exporter__pgsql_cluster_admin_password: password

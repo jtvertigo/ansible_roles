@@ -1,0 +1,6 @@
+---
+- name: "Restart systemd postgres_exporter service"
+  ansible.builtin.service:
+    name: "postgres_exporter_{{ postgres_exporter__pgsql_cluster_port }}"
+    state: restarted
+  listen: "restart postgres_exporter"

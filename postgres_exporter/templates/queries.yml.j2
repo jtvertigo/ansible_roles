@@ -1,0 +1,17 @@
+pg_postmaster:
+  query: "SELECT pg_postmaster_start_time as start_time_seconds from pg_postmaster_start_time()"
+  master: true
+  metrics:
+    - start_time_seconds:
+        usage: "GAUGE"
+        description: "Time at which postmaster started"
+pg_cluster:
+  query: "SELECT setting as cluster_name, sourceline as cluster_name_line_in_cfg FROM pg_settings WHERE name='cluster_name'"
+  master: true
+  metrics:
+    - cluster_name:
+        usage: "LABEL"
+        description: "PostgreSQL cluster name"
+    - cluster_name_line_in_cfg:
+        usage: "COUNTER"
+        description: "Line number of this setting in postgresql.conf file"
