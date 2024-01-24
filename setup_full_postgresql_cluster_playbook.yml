@@ -1,0 +1,81 @@
+---
+- name: "Setup Postgresql cluster with node_exporter \
+    and postgres_exporter (Ubuntu 20.04, Ubuntu 22.04)"
+  hosts: os_base_setup
+  gather_facts: true
+  become: true
+
+  roles:
+
+    - role: os_base_setup
+      vars:
+        os_base_setup__reboot_when_kernel_update: true
+        os_base_setup__enable_ssh_password_authentication: false
+        os_base_setup__timezone: "Europe/Moscow"
+        # os_base_setup__ntp_servers:
+        #   - 10.10.10.1
+        #   - 10.10.10.2
+        #   - 10.10.10.3
+        # os_base_setup__users:
+        #   - name: user1
+        #     password: password
+        #     groups: sudo
+
+    - role: node_exporter
+      # environment:
+      #   http_proxy: "http://user:password@10.20.30.40:3128"
+      #   https_proxy: "http://user:password@10.20.30.40:3128"
+      #   HTTP_PROXY: "http://user:password@10.20.30.40:3128"
+      #   HTTPS_PROXY: "http://user:password@10.20.30.40:3128"
+      vars:
+        node_exporter__version: "1.6.0"
+        node_exporter__port: 9100
+
+    - role: postgresql_1c
+      vars:
+        postgresql_1c__install_postgresql: true
+        postgresql_1c__cluster_initialize: true
+        postgresql_1c__postgresql_version: 15
+        postgresql_1c__postgresql_version_with_minor: 15.3
+        postgresql_1c__drop_main_cluster: true
+        postgresql_1c__cluster_name: main
+        postgresql_1c__cluster_port: 5432
+        postgresql_1c__cluster_data_dir: /1c/pgdata/{{ postgresql_1c__cluster_name }}
+        postgresql_1c__cluster_pg_password: password
+        postgresql_1c__cluster_1c_user: usr1cv8
+        postgresql_1c__cluster_1c_user_password: password
+        postgresql_1c__set_pg_settings: true
+        postgresql_1c__set_pg_hba_rules: true
+        postgresql_1c__timezone: Europe/Moscow
+        # postgresql_1c__pg_hba_settings:
+        #   - contype: host
+        #     databases: all
+        #     users: all
+        #     source: 10.20.30.1/32
+        #     method: md5
+        #     comment: " app server-1"
+        #     state: present
+        #   - contype: host
+        #     databases: all
+        #     users: all
+        #     source: 10.20.30.0/24
+        #     method: md5
+        #     comment: " local network"
+        #     state: present
+
+    - role: postgres_exporter
+      # environment:
+      #   http_proxy: "http://user:password@10.20.30.40:3128"
+      #   https_proxy: "http://user:password@10.20.30.40:3128"
+      #   HTTP_PROXY: "http://user:password@10.20.30.40:3128"
+      #   HTTPS_PROXY: "http://user:password@10.20.30.40:3128"
+      vars:
+        postgres_exporter__version: "0.15.0"
+        postgres_exporter__port: 9187
+        postgres_exporter__pgsql_cluster_host: 127.0.0.1
+        postgres_exporter__pgsql_cluster_port: 5432
+        postgres_exporter__pgsql_cluster_create_monitor_user: true
+        postgres_exporter__pgsql_cluster_monitor_user: monitor
+        postgres_exporter__pgsql_cluster_monitor_user_password: password
+        postgres_exporter__pgsql_cluster_admin_user: postgres
+        postgres_exporter__pgsql_cluster_admin_password: password
