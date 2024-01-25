@@ -1,0 +1,4 @@
+---
+etcd__etcd_version: "3.3.25"
+etcd__data_dir: "/opt/etcd"
+etcd__cluster_name: patroni-cluster

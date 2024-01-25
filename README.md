@@ -8,6 +8,8 @@ Install node_exporter (Ubuntu 20.04, Ubuntu 22.04)
 Setup PostgreSQL cluster (build from 1C) on Ubuntu 20.04, Ubuntu 22.04, should use ```os_base_setup``` role before
 ## postgresql_exporter
 Setup postgres_exporter (Ubuntu 20.04, Ubuntu 22.04)
+## etcd
+Setup etcd cluster (Ubuntu 20.04, Ubuntu 22.04)
 ## keepalived
 Setup keepalived (for using with haproxy + Patroni) for high availability (Ubuntu 20.04, Ubuntu 22.04)
 ## haproxy

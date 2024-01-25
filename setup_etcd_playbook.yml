@@ -1,0 +1,12 @@
+---
+- name: "Setup etcd cluster (Ubuntu 20.04, Ubuntu 22.04)"
+  hosts: etcd
+  gather_facts: true
+  become: true
+
+  roles:
+    - role: etcd
+      vars:
+        etcd__etcd_version: "3.3.25"
+        etcd__data_dir: "/opt/etcd"
+        etcd__cluster_name: patroni-cluster

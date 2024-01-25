@@ -16,6 +16,10 @@ ansible_python_interpreter=/usr/bin/python3
 [postgres_exporter]
 192.168.88.101 ansible_user=toor
 
+[etcd]
+192.168.88.101 ansible_user=toor etcd__node_name=etcd-1
+192.168.88.244 ansible_user=toor etcd__node_name=etcd-2
+
 [haproxy]
 192.168.88.101 ansible_user=toor
 192.168.88.102 ansible_user=toor
